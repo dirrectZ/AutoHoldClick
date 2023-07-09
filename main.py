@@ -3,7 +3,7 @@ from tkinter import ttk
 import keyboard
 import pyautogui
 import json
-
+from os import path
 
 class App(tkinter.Tk):
 	settings = {
@@ -38,7 +38,7 @@ class MainPage(tkinter.Frame):
 		},
 		2: {  # Started status
 			'text': 'Started',
-			'color': '#0ff',
+			'color': '#0f0',
 		},
 	}
 	
@@ -77,7 +77,6 @@ class MainPage(tkinter.Frame):
 		else:
 			self.after(100, self.event_loop)
 			
-	
 	def change_status(self) -> bool:
 		if keyboard.is_pressed(self.stand_by_key):
 			if self.status == 0:
@@ -106,7 +105,7 @@ class MainPage(tkinter.Frame):
 		self.update_displayer()
 	
 	def read_settings(self):
-		with open("settings.json", "r") as settings_file:
+		with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "r") as settings_file:
 			settings = json.load(settings_file)
 			self.stand_by_key = settings['standby_key']
 			self.start_stop_key = settings['start_stop_key']
@@ -164,12 +163,12 @@ class SettingsPage(tkinter.Frame):
 			
 			settings = {}
 			
-			with open("settings.json", "r") as settings_file:
+			with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "r") as settings_file:
 				settings = json.load(settings_file)
 			
 			settings[key_to_record] = str(key)
 			
-			with open("settings.json", "w") as settings_file:
+			with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "w") as settings_file:
 				json.dump(settings, settings_file)
 			
 			self.after(1000, self.apply_settings)
@@ -184,7 +183,7 @@ class SettingsPage(tkinter.Frame):
 		self.record('start_stop_key')
 	
 	def read_settings(self):
-		with open("settings.json", "r") as settings_file:
+		with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "r") as settings_file:
 			settings = json.load(settings_file)
 			self.standby_key.set(settings['standby_key'])
 			self.start_stop_key.set(settings['start_stop_key'])
