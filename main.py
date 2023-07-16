@@ -4,6 +4,8 @@ import keyboard
 import pyautogui
 import json
 from os import path
+import os
+
 
 class App(tkinter.Tk):
 	settings = {
@@ -190,4 +192,5 @@ class SettingsPage(tkinter.Frame):
 
 
 if __name__ == '__main__':
+	print(os.path.expanduser('~'))
 	App().mainloop()
