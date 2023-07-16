@@ -1,3 +1,0 @@
-([('main',
-   '/Users/robescumatei/Documents/WorkAndShit/Python/AutoHoldClick/dist/main',
-   'EXECUTABLE')],)
