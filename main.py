@@ -1,31 +1,17 @@
 import tkinter
-from tkinter import ttk
-import keyboard
-import pyautogui
+import time
+import pynput.mouse
+import pygame.mixer as sound
 import json
 from os import path
-import os
-
 
 class App(tkinter.Tk):
-	settings = {
-		"stand_by_key": 'right shift',
-		"start_stop_key": 'end',
-	}
-	
 	def __init__(self):
 		super().__init__()
 		self.title = 'AutoHoldClick'
 		self.geometry('480x240')
-		self.tabs_manager = ttk.Notebook(self)
-		self.tabs_manager.pack(anchor='n', fill='both', expand=True)
-		
 		self.main_page = MainPage()
-		self.settings_page = SettingsPage()
-		self.tabs_manager.add(self.main_page)
-		self.tabs_manager.tab(0, text="Main")
-		self.tabs_manager.add(self.settings_page)
-		self.tabs_manager.tab(1, text="Settings")
+		self.main_page.pack(anchor='n', fill='both', expand=True)
 
 
 class MainPage(tkinter.Frame):
@@ -57,43 +43,22 @@ class MainPage(tkinter.Frame):
 		self.rowconfigure(0, weight=1)
 		self.rowconfigure(1, weight=1)
 		self.columnconfigure(0, weight=1)
-		
-		self.stand_by_key = str()
-		self.start_stop_key = str()
-		self.read_settings()
-		
+
 		self.status = 0
+		self.mouse_controller = pynput.mouse.Controller()
 		
-		self.after(100, self.event_loop)
-	
-	def event_loop(self):
-		if self.change_status():
-			self.update_displayer()
-			
-			if self.status == 2:
-				pyautogui.mouseDown()
-				self.after(500, self.event_loop)
-			else:
-				pyautogui.mouseUp()
-				self.after(500, self.event_loop)
-		else:
-			self.after(100, self.event_loop)
-			
-	def change_status(self) -> bool:
-		if keyboard.is_pressed(self.stand_by_key):
-			if self.status == 0:
-				self.status = 1
-			else:
-				self.status = 0
-		elif keyboard.is_pressed(self.start_stop_key):
-			if self.status == 1:
-				self.status = 2
-			elif self.status == 2:
-				self.status = 1
-		else:
-			return False
-		return True
-	
+		self.click_timer = 0
+		self.mdbutton_timer = 0
+		self.mdbutton_pressed = False
+		
+		sound.init()
+		self.activated_sound = sound.Sound(path.abspath(path.join(path.dirname(__file__), 'audio/activated.mp3')))
+		self.deactivated_sound = sound.Sound(path.abspath(path.join(path.dirname(__file__), 'audio/deactivated.mp3')))
+		
+		mouse_listener = pynput.mouse.Listener(on_click=self.on_click)
+		mouse_listener.start()
+		self.after(50, self.event_handler)
+		
 	def update_displayer(self):
 		self.status_displayer.config(fg=self.STATUS[self.status]['color'])
 		self.status_text.set(value=self.STATUS[self.status]['text'])
@@ -105,92 +70,42 @@ class MainPage(tkinter.Frame):
 			self.status = 1
 			
 		self.update_displayer()
-	
-	def read_settings(self):
-		with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "r") as settings_file:
-			settings = json.load(settings_file)
-			self.stand_by_key = settings['standby_key']
-			self.start_stop_key = settings['start_stop_key']
-
-
-class SettingsPage(tkinter.Frame):
-	def __init__(self):
-		super().__init__()
-		self.standby_frame = tkinter.LabelFrame(self, text='Stand By', labelanchor='n')
-		self.standby_frame.grid(row=0, column=0, sticky='nsew')
 		
-		self.standby_key = tkinter.StringVar()
-		self.standby_key_entry = tkinter.Entry(self.standby_frame, textvariable=self.standby_key, font=('', 22),
-											   state='readonly')
-		
-		self.standby_key_entry.grid(row=0, column=0, sticky='ew', padx=(20, 0))
-		
-		self.record_button_sby = tkinter.Button(self.standby_frame, text='Record', command=self.record_standby)
-		self.record_button_sby.grid(row=0, column=1, sticky='ew', padx=(0, 20))
-		
-		self.standby_frame.rowconfigure(0, weight=1)
-		self.standby_frame.columnconfigure(0, weight=3)
-		self.standby_frame.columnconfigure(1, weight=1)
-		
-		#  START/STOP
-		self.start_stop_frame = tkinter.LabelFrame(self, text='Start/Stop', labelanchor='n')
-		self.start_stop_frame.grid(row=1, column=0, sticky='nsew')
-		
-		self.start_stop_key = tkinter.StringVar()
-		self.start_stop_key_entry = tkinter.Entry(self.start_stop_frame, textvariable=self.start_stop_key, font=('', 22),
-											   state='readonly')
-		
-		self.start_stop_key_entry.grid(row=0, column=0, sticky='ew', padx=(20, 0))
-		
-		self.record_button_st = tkinter.Button(self.start_stop_frame, text='Record', command=self.record_start_stop)
-		self.record_button_st.grid(row=0, column=1, sticky='ew', padx=(0, 20))
-		
-		self.start_stop_frame.rowconfigure(0, weight=1)
-		self.start_stop_frame.columnconfigure(0, weight=3)
-		self.start_stop_frame.columnconfigure(1, weight=1)
-		
-		self.rowconfigure(0, weight=1)
-		self.rowconfigure(1, weight=1)
-		self.columnconfigure(0, weight=1)
-		
-		self.read_settings()
-		
-	def record(self, key_to_record):
-		key = keyboard.read_key()
-		if not str(key).isnumeric() and key != self.standby_key.get() and key != self.start_stop_key.get():
-			if key_to_record == 'standby_key':
-				self.standby_key.set(key)
-			else:
-				self.start_stop_key.set(key)
+	def on_click(self, x, y, button, pressed):
+		if button == pynput.mouse.Button.left and not pressed and self.status != 0:
+			if self.status == 1:
+				self.status = 2
+				self.mouse_controller.press(pynput.mouse.Button.left)
+				self.click_timer = time.time()
+			elif self.status == 2 and time.time() - self.click_timer >= 1:
+				self.status = 1
 			
-			settings = {}
+		elif button == pynput.mouse.Button.middle:
+			if pressed:
+				self.mdbutton_timer = time.time()
+			self.mdbutton_pressed = pressed
 			
-			with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "r") as settings_file:
-				settings = json.load(settings_file)
-			
-			settings[key_to_record] = str(key)
-			
-			with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "w") as settings_file:
-				json.dump(settings, settings_file)
-			
-			self.after(1000, self.apply_settings)
+		self.update_displayer()
 		
-	def apply_settings(self):
-		self.master.main_page.read_settings()
-	
-	def record_standby(self):
-		self.record('standby_key')
-	
-	def record_start_stop(self):
-		self.record('start_stop_key')
-	
-	def read_settings(self):
-		with open(path.abspath(path.join(path.dirname(__file__), 'settings.json')), "r") as settings_file:
-			settings = json.load(settings_file)
-			self.standby_key.set(settings['standby_key'])
-			self.start_stop_key.set(settings['start_stop_key'])
+	def event_handler(self):
+		if self.mdbutton_pressed:
+			if int(time.time()) - self.mdbutton_timer >= 1:
+				self.mdbutton_timer = 0
+				if self.status == 0:
+					self.status = 1
+					self.activated_sound.play()
+				else:
+					self.status = 0
+					self.deactivated_sound.play()
+					# TODO release click when this is deactivated and inspect the behavior of click release
+					
+					
+				self.mdbutton_pressed = False
+				self.update_displayer()
+		
+		self.after(50, self.event_handler)
 
 
 if __name__ == '__main__':
-	print(os.path.expanduser('~'))
 	App().mainloop()
+

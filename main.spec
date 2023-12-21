@@ -8,7 +8,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('settings.json', '.')],
+    datas=[('audio/activated.mp3', 'audio/'), ('audio/deactivated.mp3', 'audio/')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -45,6 +45,6 @@ exe = EXE(
 app = BUNDLE(
     exe,
     name='AutoHoldClick.app',
-    icon=None,
+    icon='logo.ico',
     bundle_identifier=None,
 )
